@@ -67,37 +67,24 @@ if __name__ == '__main__':
             url = search(r'(?P<url>https?://[^\s]+)', line).group("url")
             # Разбирает его параметры
             url_details = urlparse(url)
-
-            # print(date, ip, url_details, end='\n')
+            # Вставляем запись о пользователе
+            records = (ip, gi.country_name_by_addr(ip))
+            cursor.execute("INSERT OR IGNORE INTO User (IP, Country) VALUES (?, ?)", records)
+            # Берем из базы его id
+            user_id = cursor.execute("""SELECT id FROM User WHERE IP=(?)""", (ip,)).fetchone()[0]
 
             if url_details.path == '/cart':
                 query = parse_qs(url_details.query)
-                records = (ip, gi.country_name_by_addr(ip))
-                cursor.execute(
-                    """
-                        INSERT OR IGNORE INTO User (IP, Country)
-                        VALUES (?, ?)
-                    """, records)
+
                 # print(date, ip, domain, url_details.path, query)
 
             elif url_details.path == '/pay':
                 query = parse_qs(url_details.query)
-                records = (ip, gi.country_name_by_addr(ip))
-                cursor.execute(
-                    """
-                        INSERT OR IGNORE INTO User (IP, Country)
-                        VALUES (?, ?)
-                    """, records)
+
                 # print(date, ip, domain, url_details.path, query)
 
             elif url_details.path[:12] == '/success_pay':
                 success_pay_id = url_details.path.split('_')[-1][:-1]
-                records = (ip, gi.country_name_by_addr(ip))
-                cursor.execute(
-                    """
-                        INSERT OR IGNORE INTO User (IP, Country)
-                        VALUES (?, ?)
-                    """, records)
 
                 # print(date, ip, domain, url_details.path, success_pay_id)
 
@@ -112,72 +99,39 @@ if __name__ == '__main__':
                 # Пробуем разделить категорию и товар в разные переменные
                 # Если в логе нет записей про товар, записываем как Main Page
                 if category_and_product:
-                    category = (category_and_product[0],)
-
-                    cursor.execute(
-                        """
-                            INSERT OR IGNORE INTO Category (Category)
-                            VALUES (?)
-                        """, category)
-
-                    # Ищет id категории в базе
-                    category_id = cursor.execute(
-                        """
-                            SELECT id FROM Category
-                            WHERE Category=?
-                        """, category).fetchone()
+                    # Символьное представление категории
+                    category = (category_and_product[0], )  # frozen_fish
+                    # Вставляем категорию если её нет и запоминаем её id
+                    cursor.execute("""INSERT OR IGNORE INTO Category (Category) VALUES (?)""", category)
+                    category_id = cursor.execute("SELECT id FROM Category WHERE Category=?", category).fetchone()[0]
 
                     try:
                         product = category_and_product[1]
+                        values = (product, category_id)
+                        # Заполняем таблицу "Товары" категорией и товаром и запоминаем id товара
+                        cursor.execute("INSERT INTO Goods (Name, Category) VALUES (?, ?)", values)
+                        goods_id = cursor.execute("""SELECT id FROM Goods WHERE (Name, Category)=(?, ?)""", values).fetchone()[0]
+                        # Заполняем действия
+                        values = (date, user_id, category_id, goods_id)
+                        cursor.execute("INSERT INTO Action (Time, User, Category, Goods) VALUES (?, ?, ?, ?)", values)
+                        print('Action from {}, User: {}, Path: {}, Category: {}, Product: {}'.format(
+                            date, ip, url_details.path, category[0], product))
+
                     except IndexError:
-                        product = 'None'
-
-                    # Заполняем таблицу "Товары"
-                    values = (product, category_id[0])
-                    cursor.execute(
-                        """
-                            INSERT INTO Goods (Name, Category)
-                            VALUES (?, ?)
-                        """, values)
-
-                    cursor.execute(
-                        """
-                            INSERT OR IGNORE INTO User (IP, Country)
-                            VALUES (?, ?)
-                        """, records)
-
-                    goods_id = cursor.execute("SELECT id FROM Goods WHERE (Name, Category)=(?, ?)", values).fetchone()
-                    user_id = cursor.execute("""SELECT id FROM User WHERE IP=(?)""", (ip, )).fetchone()
-
-                    values = (date, user_id[0], category_id[0], goods_id[0])
-                    cursor.execute(
-                        """
-                            INSERT INTO Action (Time, User, Category, Goods)
-                            VALUES (?, ?, ?, ?)
-                        """, values)
-                    print('Action from {}, User: {}, Path: {}, Category: {}, Product: {}'.format(
-                        date, ip, url_details.path, category, product))
+                        # Категория есть, но нет товара.
+                        product = None
+                        # Заполняем только категорию.
+                        values = (date, user_id, category_id)
+                        cursor.execute("INSERT INTO Action (Time, User, Category) VALUES (?, ?, ?)", values)
+                        print('Action from {}, User: {}, Path: {}, Category: {}'.format(
+                            date, ip, url_details.path, category[0]))
                 else:
                     category_and_product = 'Main Page'
-                    # Если пользователь посещал главную то не записываем ничего.
-                    cursor.execute(
-                        """
-                            INSERT OR IGNORE INTO User (IP, Country)
-                            VALUES (?, ?)
-                        """, records)
-
-                    user_id = cursor.execute("""SELECT id FROM User WHERE IP=(?)""", (ip, )).fetchone()
-                    # category, goods = None, None
-
-                    # Заполняем информацию о действии пользователя
-                    values = (date, user_id[0])
-                    cursor.execute(
-                        """
-                            INSERT INTO Action (Time, User)
-                            VALUES (?, ?)
-                        """, values)
-
-                    print('Action from {}, User: {}, Path: {}, Visited goods: {}'.format(
+                    # Если пользователь посещал главную то не записываем ничего в товар и категории.
+                    # Заполняем информацию о действии пользователя.
+                    values = (date, user_id)
+                    cursor.execute("INSERT INTO Action (Time, User) VALUES (?, ?)", values)
+                    print('Action from {}, User: {}, Path: {}, Visited: {}'.format(
                         date, ip, url_details.path, category_and_product))
 
             conn.commit()
