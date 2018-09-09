@@ -83,14 +83,32 @@ test_goods_from_category_fresh_fish()
 # 3
 def time_analytics_for_frozen_fish_category():
     test_divider(3)
-    frozen_fish_id = cursor.execute("SELECT Category.id FROM Category WHERE Category.Category='frozen_fish'").fetchone()
     records = cursor.execute(
         """
             SELECT Action.Time
             FROM Action
-            WHERE Action.Category = ?
-        """, frozen_fish_id).fetchall()
-    print(records)
+            WHERE Action.Time BETWEEN DATETIME('2018-08-01 00:00') AND ('now')
+              AND Action.Category = (SELECT Category.id FROM Category WHERE Category.Category = 'frozen_fish')
+        """).fetchall()
+    night_hours = ('00', '01', '02', '03', '04', '05')
+    morning_hours = ('06', '07', '08', '09', '10', '11')
+    afternoon_hours = tuple(str(x) for x in range(12, 18))
+    evening_hours = tuple(str(x) for x in range(18, 24))
+    stats = dict(night=0, morning=0, afternoon=0, evening=0)
+    for date in records:
+        time = date[0].split(' ')[1]
+        hours = time[:2]
+        if hours in night_hours:
+            stats['night'] += 1
+        elif hours in morning_hours:
+            stats['morning'] += 1
+        elif hours in evening_hours:
+            stats['evening'] += 1
+        elif hours in afternoon_hours:
+            stats['afternoon'] += 1
+    print('Категорию frozen_fish чаще всего просматривают в %s' % sorted(stats.items(), key=lambda x: x[1], reverse=True)[0][0])
+
+
 
 
 time_analytics_for_frozen_fish_category()
