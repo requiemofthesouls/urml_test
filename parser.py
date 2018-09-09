@@ -80,30 +80,36 @@ if __name__ == '__main__':
             user_id = cursor.execute("SELECT id FROM User WHERE IP=(?)", (ip,)).fetchone()[0]
 
             if url_details.path == '/cart':
+                # Разбираем параметры из querystring
                 query = parse_qs(url_details.query)
                 goods_id = query['goods_id'][0]
                 amount = query['amount'][0]
                 cart_id = query['cart_id'][0]
+                # Вставляем в базу запись о тележке
                 values = (date, user_id, goods_id, amount, cart_id)
                 cursor.execute("INSERT INTO Cart (Time, User, Goods_id, Amount, Cart_id) VALUES (?, ?, ?, ?, ?)", values)
                 print('Cart from: {}, User: {}, Path: {}, Inserted values: {}'.format(date, ip, url_details.path, query))
 
             elif url_details.path == '/pay':
+                # Разбираем параметры из querystring
                 query = parse_qs(url_details.query)
                 user_qs_id = query['user_id'][0]
                 cart_qs_id = query['cart_id'][0]
+                # Ищем тележку с нужным нам id
                 cart_id = cursor.execute("SELECT id FROM Cart WHERE Cart_id=?", (cart_qs_id, )).fetchone()[0]
+                # Вставляем запись об оплате
                 values = (date, user_id, cart_id, user_qs_id)
                 cursor.execute("INSERT INTO Purchase (Time, User, Cart_id, Pay_user_id) VALUES (?, ?, ?, ?)", values)
                 print('Pay from: {}, User: {}, Path: {}, Cart id: {}, User id: {}'.format(date, ip, url_details.path, cart_qs_id, user_id))
 
             elif url_details.path[:12] == '/success_pay':
                 success_pay_id = url_details.path.split('_')[-1][:-1]
-                purchase_id = cursor.execute('SELECT id FROM Cart WHERE Cart_id=?', (success_pay_id, )).fetchone()[0]
-                values = (True, purchase_id)
-                cursor.execute('UPDATE Cart SET Success_pay=(?) WHERE id=(?)', values)
-
-                # print(date, ip, domain, url_details.path, success_pay_id)
+                # Ищем тележки с нужным id
+                purchase_id = cursor.execute('SELECT id FROM Cart WHERE Cart_id=?', (success_pay_id, )).fetchall()
+                # Обновляем поле о успешной оплате тележки.
+                for id_ in purchase_id:
+                    cursor.execute('UPDATE Cart SET Success_pay=(?) WHERE id=(?)', (True, id_[0]))
+                    print('Success pay for cart №: {}, User: {}, Time: {}'.format(id_[0], ip, date))
 
             else:
                 # Извлекаем категорию и товар из урла
