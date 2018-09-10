@@ -1,7 +1,7 @@
 import os
 import sqlite3
 
-from pprint import pprint
+from re import search
 
 CURRENT_DIR = os.getcwd()
 db_name = "usml.sqlite"
@@ -106,12 +106,43 @@ def time_analytics_for_frozen_fish_category():
             stats['evening'] += 1
         elif hours in afternoon_hours:
             stats['afternoon'] += 1
-    print('Категорию frozen_fish чаще всего просматривают в %s' % sorted(stats.items(), key=lambda x: x[1], reverse=True)[0][0])
-
-
+    print('Категорию frozen_fish чаще всего просматривают в %s' %
+          sorted(stats.items(), key=lambda x: x[1], reverse=True)[0][0])
 
 
 time_analytics_for_frozen_fish_category()
+
+
+# 4
+def max_queries_per_hour():
+    test_divider(4)
+    # Пришлось читать из файла, т.к. в бд нет записей о запросах с успешной оплатой.
+    queries = {}
+    with open('logs.txt', 'r') as f:
+        for line in f:
+            datetime = search(r'\d{4}(-\d{2})+\s\d{2}(:\d{2})+', line).group(0)
+            date = datetime.split(' ')[0]
+            time = datetime.split(' ')[1]
+            hours = time[:2]
+            key = date + '-' + hours + 'h'
+            try:
+                queries[key] += 1
+            except KeyError:
+                queries[key] = 1
+    max_queries = sorted(queries.items(), key=lambda x: x[1], reverse=True)[0]
+    print('Максимальное количество запросов за час (%s) в %s' % (max_queries[1], max_queries[0]))
+
+
+max_queries_per_hour()
+
+
+# 5
+def the_best_selling_with_semi_manufactures():
+
+    pass
+
+
+the_best_selling_with_semi_manufactures()
 
 
 # 6

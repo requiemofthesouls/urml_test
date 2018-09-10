@@ -33,6 +33,13 @@ if __name__ == '__main__':
                 Cart_id INTEGER,
                 Success_pay BOOLEAN);
                 
+            CREATE TABLE Success_Pay (
+                id   INTEGER   PRIMARY KEY ASC AUTOINCREMENT,
+                Time DATETIME,
+                User INTEGER REFERENCES User (id),
+                Cart_id INTEGER
+            );
+                
             CREATE TABLE Purchase (
                 id   INTEGER   PRIMARY KEY ASC AUTOINCREMENT,
                 Time DATETIME,
@@ -87,8 +94,10 @@ if __name__ == '__main__':
                 cart_id = query['cart_id'][0]
                 # Вставляем в базу запись о тележке
                 values = (date, user_id, goods_id, amount, cart_id)
-                cursor.execute("INSERT INTO Cart (Time, User, Goods_id, Amount, Cart_id) VALUES (?, ?, ?, ?, ?)", values)
-                print('Cart from: {}, User: {}, Path: {}, Inserted values: {}'.format(date, ip, url_details.path, query))
+                cursor.execute("INSERT INTO Cart (Time, User, Goods_id, Amount, Cart_id) VALUES (?, ?, ?, ?, ?)",
+                               values)
+                print(
+                    'Cart from: {}, User: {}, Path: {}, Inserted values: {}'.format(date, ip, url_details.path, query))
 
             elif url_details.path == '/pay':
                 # Разбираем параметры из querystring
@@ -96,16 +105,18 @@ if __name__ == '__main__':
                 user_qs_id = query['user_id'][0]
                 cart_qs_id = query['cart_id'][0]
                 # Ищем тележку с нужным нам id
-                cart_id = cursor.execute("SELECT id FROM Cart WHERE Cart_id=?", (cart_qs_id, )).fetchone()[0]
+                cart_id = cursor.execute("SELECT id FROM Cart WHERE Cart_id=?", (cart_qs_id,)).fetchone()[0]
                 # Вставляем запись об оплате
                 values = (date, user_id, cart_id, user_qs_id)
                 cursor.execute("INSERT INTO Purchase (Time, User, Cart_id, Pay_user_id) VALUES (?, ?, ?, ?)", values)
-                print('Pay from: {}, User: {}, Path: {}, Cart id: {}, User id: {}'.format(date, ip, url_details.path, cart_qs_id, user_id))
+                print('Pay from: {}, User: {}, Path: {}, Cart id: {}, User id: {}'.format(date, ip, url_details.path,
+                                                                                          cart_qs_id, user_id))
 
             elif url_details.path[:12] == '/success_pay':
                 success_pay_id = url_details.path.split('_')[-1][:-1]
+                cursor.execute("INSERT INTO Success_Pay (Time, User, Cart_id) VALUES (?, ?, ?)", (date, user_id, success_pay_id))
                 # Ищем тележки с нужным id
-                purchase_id = cursor.execute('SELECT id FROM Cart WHERE Cart_id=?', (success_pay_id, )).fetchall()
+                purchase_id = cursor.execute('SELECT id FROM Cart WHERE Cart_id=?', (success_pay_id,)).fetchall()
                 # Обновляем поле о успешной оплате тележки.
                 for id_ in purchase_id:
                     cursor.execute('UPDATE Cart SET Success_pay=(?) WHERE id=(?)', (True, id_[0]))
@@ -131,10 +142,12 @@ if __name__ == '__main__':
                         values = (product, category_id)
                         # Заполняем таблицу "Товары" категорией и товаром и запоминаем id товара
                         try:
-                            goods_id = cursor.execute("SELECT id FROM Goods WHERE (Name, Category)=(?, ?)", values).fetchone()[0]
+                            goods_id = \
+                            cursor.execute("SELECT id FROM Goods WHERE (Name, Category)=(?, ?)", values).fetchone()[0]
                         except TypeError:
                             cursor.execute("INSERT INTO Goods (Name, Category) VALUES (?, ?)", values)
-                            goods_id = cursor.execute("SELECT id FROM Goods WHERE (Name, Category)=(?, ?)", values).fetchone()[0]
+                            goods_id = \
+                            cursor.execute("SELECT id FROM Goods WHERE (Name, Category)=(?, ?)", values).fetchone()[0]
                         # Заполняем действия
                         values = (date, user_id, category_id, goods_id)
                         cursor.execute("INSERT INTO Action (Time, User, Category, Goods) VALUES (?, ?, ?, ?)", values)
