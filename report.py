@@ -116,21 +116,32 @@ time_analytics_for_frozen_fish_category()
 # 4
 def max_queries_per_hour():
     test_divider(4)
-    # Пришлось читать из файла, т.к. в бд нет записей о запросах с успешной оплатой.
     queries = {}
-    with open('logs.txt', 'r') as f:
-        for line in f:
-            datetime = search(r'\d{4}(-\d{2})+\s\d{2}(:\d{2})+', line).group(0)
-            date = datetime.split(' ')[0]
-            time = datetime.split(' ')[1]
-            hours = time[:2]
-            key = date + '-' + hours + 'h'
-            try:
-                queries[key] += 1
-            except KeyError:
-                queries[key] = 1
-    max_queries = sorted(queries.items(), key=lambda x: x[1], reverse=True)[0]
-    print('Максимальное количество запросов за час (%s) в %s' % (max_queries[1], max_queries[0]))
+    records = cursor.execute(
+        """
+            SELECT Action.Time
+            FROM Action
+                UNION ALL
+            SELECT Cart.Time
+            FROM Cart
+                UNION ALL
+            SELECT Purchase.Time
+            FROM Purchase
+                UNION ALL
+            SELECT Success_Pay.Time
+            FROM Success_Pay
+        """).fetchall()
+    for record in records:
+        date = record[0].split(' ')[0]
+        time = record[0].split(' ')[1]
+        hours = time[:2]
+        key = date + '-' + hours + 'h'
+        try:
+            queries[key] += 1
+        except KeyError:
+            queries[key] = 1
+    queries_sorted = sorted(queries.items(), key=lambda x: x[1], reverse=True)[0]
+    print('Максимальное количество запросов за час (%s) в %s' % (queries_sorted[1], queries_sorted[0]))
 
 
 max_queries_per_hour()
@@ -138,7 +149,6 @@ max_queries_per_hour()
 
 # 5
 def the_best_selling_with_semi_manufactures():
-
     pass
 
 
