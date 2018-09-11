@@ -149,7 +149,37 @@ max_queries_per_hour()
 
 # 5
 def the_best_selling_with_semi_manufactures():
-    pass
+    test_divider(5)
+    analytics = {}
+    carts_with_semi_manufactures = cursor.execute(
+        """
+            SELECT DISTINCT Cart.Cart_id
+            FROM Cart
+            WHERE Cart.Success_pay = 1
+              AND Cart.Goods_id IN (SELECT Goods.querystring_id
+                                    FROM Goods
+                                    WHERE Goods.Category =
+                                    (SELECT Category.id
+                                     FROM Category
+                                     WHERE Category.Category = 'semi_manufactures'))
+            ORDER BY Cart_id
+        """).fetchall()
+    for cart in carts_with_semi_manufactures:
+        cart_id = cart[0]
+        records = cursor.execute('SELECT Cart.Goods_id, Cart.Amount FROM Cart WHERE Cart.Cart_id = (?)', cart).fetchall()
+        for goods in records:
+            goods_qs_id = goods[0]
+            amount = goods[1]
+            category_id = cursor.execute('SELECT Goods.Category FROM Goods WHERE querystring_id = (?)', (goods_qs_id, )).fetchone()
+            key = cursor.execute('SELECT Category.Category FROM Category WHERE Category.id = (?)', category_id).fetchone()[0]
+            try:
+                analytics[key] += amount
+            except KeyError:
+                analytics[key] = amount
+    sorted_analytics = sorted(analytics.items(), key=lambda x: x[1], reverse=True)
+    print('Совместно с полуфабрикатами покупают товары из категорий: %s' % (sorted_analytics[1:]))
+
+    # print(records)
 
 
 the_best_selling_with_semi_manufactures()

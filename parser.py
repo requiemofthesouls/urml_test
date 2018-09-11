@@ -28,7 +28,7 @@ if __name__ == '__main__':
                 id   INTEGER   PRIMARY KEY ASC AUTOINCREMENT,
                 Time DATETIME,
                 User INTEGER REFERENCES User (id),
-                Goods_id INTEGER,
+                Goods_id INTEGER REFERENCES Goods (querystring_id),
                 Amount INTEGER,
                 Cart_id INTEGER,
                 Success_pay BOOLEAN);
@@ -56,6 +56,7 @@ if __name__ == '__main__':
 
             CREATE TABLE Goods (
                 id       INTEGER   PRIMARY KEY ASC AUTOINCREMENT,
+                querystring_id INTEGER,
                 Name     TEXT (50),
                 Category INTEGER      REFERENCES Category (id));
 
@@ -92,6 +93,15 @@ if __name__ == '__main__':
                 goods_id = query['goods_id'][0]
                 amount = query['amount'][0]
                 cart_id = query['cart_id'][0]
+                # Дополняеям запись о id товара из querystring, т.к. наши id не совпадают
+                pk_goods_id = cursor.execute(
+                    """
+                        SELECT Action.Goods 
+                        FROM Action 
+                        WHERE Action.User = (?) 
+                        ORDER BY Action.Time DESC LIMIT 1
+                    """, (user_id, )).fetchone()[0]
+                cursor.execute("UPDATE Goods SET querystring_id=(?) WHERE id=(?)", (goods_id, pk_goods_id))
                 # Вставляем в базу запись о тележке
                 values = (date, user_id, goods_id, amount, cart_id)
                 cursor.execute("INSERT INTO Cart (Time, User, Goods_id, Amount, Cart_id) VALUES (?, ?, ?, ?, ?)",
