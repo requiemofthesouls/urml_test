@@ -1,7 +1,6 @@
 import os
 import sqlite3
 
-from re import search
 
 CURRENT_DIR = os.getcwd()
 db_name = "usml.sqlite"
